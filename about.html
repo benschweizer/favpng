@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>favpng - a webservice to retrieve favicons</title>
+    <!-- link rel="stylesheet" href="xx.css" -->
+    <link rel="shortcut icon" href="favpng.png" />
+    <link href='http://fonts.googleapis.com/css?family=Terminal+Dosis' rel='stylesheet' type='text/css'>
+    <style media="screen">
+        body, input { font-family: 'Terminal Dosis', sans-serif; }
+        body {
+            width: 900px;
+            margin: auto;
+            font-size: 120%;
+        }
+        body { background: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAIAAAACUFjqAAAAIUlEQVR4nGP8//8/A27AhEeOutIPHjx48OABCboZB9DlAJFkC03+UdyAAAAAAElFTkSuQmCC'); }
+        input { font-size: 100%; }
+        header,nav,article,footer { background: white; padding: 10px; margin: 20px}
+        h1 { margin-bottom: 10px; }
+        header { border-top: 5px solid #333; }
+        footer { background: #333; color: #fff; }
+        a {}
+    </style>
+    <script src="http://code.jquery.com/jquery-latest.min.js"></script>
+    <script type="text/javascript">
+    <!--
+        $(document).ready(function() {
+            $('#uriform').submit(function() {
+                window.location='.?' + $('#uri').val();
+                return false;
+            });
+        });
+    -->
+    </script>
+</head>
+<body>
+    <header>
+        <h1>favpng</h1>
+        a web service to retrieve favicons
+    </header>
+    <nav>usage / source code / author</nav>
+    <article>
+        <section>
+            Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet.
+            <form id="uriform" action="." method="get" >
+                <div style="width: 70%; margin: 50px auto 50px auto; padding: 10px; text-align: center; background: #efe; border: 1px solid #cfc;">
+                    <input name="uri" id="uri" style="width: 50%" placeholder="http://www.example.com/page.html"></input>
+                    <input type="submit" value="load icon"/>
+                </div>
+            </form>
+        </section>
+    </article>
+    <aside></aside>
+    <footer>usage / source code / author</footer>
+</body>
+</html>

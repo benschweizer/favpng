@@ -1,0 +1,8 @@
+#Options -Indexes
+RewriteEngine on
+
+# wsgi
+AddHandler wsgi-script .wsgi
+DirectoryIndex favpng.wsgi
+
+# eof.

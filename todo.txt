@@ -1,0 +1,2 @@
+www.h07.org - redirect loop
+separate error images for 404 pages
