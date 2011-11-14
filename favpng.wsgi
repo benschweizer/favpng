@@ -4,27 +4,17 @@
 #
 # Copyright (c) 2009-2011 Benjamin Schweizer.
 #
-# 2011-10-16, benjamin: updated magickwand lib
-# 2011-09-27, benjamin: switched to magickwand native-api
-# 2011-09-04, benjamin: made standalone app, removed libs
-# 2009-05-10, benjamin: switched image library to magickwand
-#
 
-import sys; sys.path.insert(0, '/srv/www/vhosts/tools.sickos.org/lib/site-packages')
-import StringIO
 import time
-import traceback
-import memcache; cache = memcache.Client(['127.0.0.1:11211'])
-import tracebackturbo as traceback
-
-#_log = open('/tmp/debug.log', 'a')
-#def log(str):
-#    """simple logger"""
-#    str = "%s" % str
-#    ctime = '%s' % time.ctime()
-#    for line in str.split("\n"):
-#        _log.write('%s  %s\n' % (ctime, line))
-#    _log.flush()
+try:
+    # https://github.com/gopher/python-tracebackturbo
+    import tracebackturbo as traceback
+except ImportError:
+    import traceback
+try:
+    import memcache; cache = memcache.Client(['127.0.0.1:11211'])
+except ImportError:
+    cache = None
 
 def log(str):
     ENVIRON['wsgi.errors'].write('%s' % str)
@@ -210,7 +200,6 @@ def convert(wand, width, height, depth):
         raise magickwand.WandException(wand)
     return
 
-import StringIO
 def img2png(buf, ctype):
     """i/o wrapper for convert"""
     try:
@@ -240,12 +229,13 @@ def dotherightthing(uri):
         # empty and broken uris
         return {'location': 'about.html', 'x-debug': 'empty or broken uri'}, '', '302 Go Ahead!'
 
-    result = cache.get('favpng_%s' % uri)
-    if result:
-        return result
+    if cache:
+        result = cache.get('favpng_%s' % uri)
+        if result:
+            return result
 
     headers = {
-        'User-Agent': 'favicon cache',
+        'User-Agent': 'favpng (+%s)' % ENVIRON['SCRIPT_URI'],
         'Cache-Control': 'max-age=%s, public' % (24*3600), # seconds
         'Connection': 'close', # reusing sockets consumes too many fds as we are not thread-safe
         'Accept-Encoding': 'compress,gzip', # bug with deflate junk header, see zdf.de; reported httplib2-0.5 upstream
@@ -345,7 +335,8 @@ def application(environ, start_response):
     try:
         uri = environ['QUERY_STRING']
         headers, body, status = dotherightthing(uri)
-        cache.set('favpng_%s' % uri, (headers, body, status), time=30*24*3600)
+        if cache:
+            cache.set('favpng_%s' % uri, (headers, body, status), time=30*24*3600)
     except:
         log('%s' % traceback.format_exc())
         headers, body, status = {'location': 'icons/404.png', 'x-debug': 'exception'}, '', '302 Go Ahead!'

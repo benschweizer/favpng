@@ -17,7 +17,7 @@
         header,nav,article,footer { background: white; padding: 10px; margin: 20px}
         h1 { margin-bottom: 10px; }
         header { border-top: 5px solid #333; }
-        footer { background: #333; color: #fff; }
+        footer,footer a { background: #333; color: #fff; text-decoration: none; }
         a {}
     </style>
     <script src="http://code.jquery.com/jquery-latest.min.js"></script>
@@ -37,12 +37,10 @@
         <h1>favpng</h1>
         a web service to retrieve favicons
     </header>
-    <nav>usage / source code / author</nav>
     <article>
         <section>
-            Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet.
             <form id="uriform" action="." method="get" >
-                <div style="width: 70%; margin: 50px auto 50px auto; padding: 10px; text-align: center; background: #efe; border: 1px solid #cfc;">
+                <div style="width: 70%; margin: 100px auto 100px auto; padding: 10px; text-align: center; background: #efe; border: 1px solid #cfc;">
                     <input name="uri" id="uri" style="width: 50%" placeholder="http://www.example.com/page.html"></input>
                     <input type="submit" value="load icon"/>
                 </div>
@@ -50,6 +48,6 @@
         </section>
     </article>
     <aside></aside>
-    <footer>usage / source code / author</footer>
+    <footer><a href="https://github.com/gopher/favpng">python source code at gitbut</a> / <a href="http://benjamin-schweizer.de/contact">author</footer>
 </body>
 </html>
