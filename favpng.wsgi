@@ -5,6 +5,7 @@
 # Copyright (c) 2009-2011 Benjamin Schweizer.
 #
 
+import sys; sys.path.insert(0, '/srv/www/vhosts/tools.sickos.org/lib/site-packages')
 import time
 try:
     # https://github.com/gopher/python-tracebackturbo

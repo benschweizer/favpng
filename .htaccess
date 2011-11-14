@@ -4,6 +4,5 @@ RewriteEngine on
 # wsgi
 AddHandler wsgi-script .wsgi
 DirectoryIndex favpng.wsgi
-SetEnv PYTHON_PATH=/srv/www/vhosts/tools.sickos.org/lib/site-packages
 
 # eof.
