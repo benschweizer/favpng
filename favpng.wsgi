@@ -232,7 +232,6 @@ def img2png(buf, ctype):
 
 import httplib2, socket
 def dotherightthing(uri):
-    log("hello, world")
     if uri.startswith('uri='):
         uri = uri[4:]
     try:
@@ -255,10 +254,10 @@ def dotherightthing(uri):
         http = httplib2.Http(timeout=10, disable_ssl_certificate_validation=True)
         response, content = http.request(uri , 'GET', headers=headers)
     except (socket.error, socket.timeout, httplib2.ServerNotFoundError, httplib2.FailedToDecompressContent, httplib2.httplib.ResponseNotReady) as err:
-        return {'location': '404icon.png', 'x-debug': 'network'}, '', '302 Go Ahead!'
+        return {'location': 'icons/404.png', 'x-debug': 'network'}, '', '302 Go Ahead!'
     except:
         log('%s' % traceback.format_exc())
-        return {'location': '404icon.png', 'x-debug': 'network-exception'}, '', '302 Go Ahead!'
+        return {'location': 'icons/404.png', 'x-debug': 'network-exception'}, '', '302 Go Ahead!'
 
     # pass redirects
     if 'content-location' in response and urinorm2(response['content-location'], uri) != uri or \
@@ -268,11 +267,11 @@ def dotherightthing(uri):
 
     # empty body
     if not len(content):
-        return {'location': '404icon.png', 'x-debug': 'empty'}, '', '302 Go Ahead!'
+        return {'location': 'icons/404.png', 'x-debug': 'empty'}, '', '302 Go Ahead!'
         
     # fix content-type http://www.instructables.com/favicon.ico
     if not 'content-type' in response:
-        if uri.lower().endswith('.htm') or uri.lower().endswith('.htmk'):
+        if uri.lower().endswith('.htm') or uri.lower().endswith('.html'):
             response['content-type'] = 'text/html'
         if uri.lower().endswith('.ico'):
             response['content-type'] = 'image/ico'
@@ -305,7 +304,7 @@ def dotherightthing(uri):
             return {'content-type': 'image/png'}, body, '200 Thank You!'
         except:
             print traceback.format_exc()
-            return {'location': '404icon.png', 'x-debug': 'graphics error'}, '', '302 Go Ahead!'
+            return {'location': 'icons/404.png', 'x-debug': 'graphics error'}, '', '302 Go Ahead!'
 
         body = 'found an image: %s' % response['content-type']
         body += '\nuri: %s' % uri
@@ -323,12 +322,21 @@ def dotherightthing(uri):
 
         # detect loops
         if uri == l[0]:
-            return {'location': '404icon.png', 'x-debug': 'loops'}, '', '302 Go Ahead!'
+            return {'location': 'icons/404.png', 'x-debug': 'loops'}, '', '302 Go Ahead!'
 
         redirect_uri = '%s?%s' % (ENVIRON['SCRIPT_URI'], l[0])
         return {'location': redirect_uri, 'x-debug': 'html'}, '', '302 Go Ahead!'
 
+    # fixed icons
+    fixedicons = {
+        'application/pdf': 'icons/pdf.png',
+    }
+    if content_type in fixedicons:
+        return {'location': fixedicons[content_type], 'x-debug': 'fixed'}, '', '302 Go Ahead!'
+
     # unmatched content-type
+    if not content_type in []:
+        log('unmatched content type: %s' % content_type)
     redirect_uri = '%s?%s' % (ENVIRON['SCRIPT_URI'], urinorm2('/favicon.ico', referrer=uri))
     return {'location': redirect_uri, 'x-debug': 'content-type'}, '', '302 Go Ahead!'
 
@@ -340,7 +348,7 @@ def application(environ, start_response):
         cache.set('favpng_%s' % uri, (headers, body, status), time=30*24*3600)
     except:
         log('%s' % traceback.format_exc())
-        headers, body, status = {'location': '404icon.png', 'x-debug': 'exception'}, '', '302 Go Ahead!'
+        headers, body, status = {'location': 'icons/404.png', 'x-debug': 'exception'}, '', '302 Go Ahead!'
 
     if isinstance(body, unicode):
         body=body.encode("utf-8")
