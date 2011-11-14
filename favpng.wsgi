@@ -1,7 +1,6 @@
 #!/usr/bin/env pypy
 # -*- coding: utf-8 -*-
 # vim: ts=4 syntax=python
-
 #
 # Copyright (c) 2009-2011 Benjamin Schweizer.
 #
@@ -18,14 +17,17 @@ import traceback
 import memcache; cache = memcache.Client(['127.0.0.1:11211'])
 import tracebackturbo as traceback
 
-_log = open('/tmp/debug.log', 'a')
+#_log = open('/tmp/debug.log', 'a')
+#def log(str):
+#    """simple logger"""
+#    str = "%s" % str
+#    ctime = '%s' % time.ctime()
+#    for line in str.split("\n"):
+#        _log.write('%s  %s\n' % (ctime, line))
+#    _log.flush()
+
 def log(str):
-    """simple logger"""
-    str = "%s" % str
-    ctime = '%s' % time.ctime()
-    for line in str.split("\n"):
-        _log.write('%s  %s\n' % (ctime, line))
-    _log.flush()
+    ENVIRON['wsgi.errors'].write('%s' % str)
 
 chars_alnum='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890'
 chars_hostname=chars_alnum+'.-_'
@@ -230,6 +232,7 @@ def img2png(buf, ctype):
 
 import httplib2, socket
 def dotherightthing(uri):
+    log("hello, world")
     if uri.startswith('uri='):
         uri = uri[4:]
     try:
@@ -252,7 +255,6 @@ def dotherightthing(uri):
         http = httplib2.Http(timeout=10, disable_ssl_certificate_validation=True)
         response, content = http.request(uri , 'GET', headers=headers)
     except (socket.error, socket.timeout, httplib2.ServerNotFoundError, httplib2.FailedToDecompressContent, httplib2.httplib.ResponseNotReady) as err:
-        #log('%s: %s' % (uri, err))
         return {'location': '404icon.png', 'x-debug': 'network'}, '', '302 Go Ahead!'
     except:
         log('%s' % traceback.format_exc())
@@ -303,7 +305,6 @@ def dotherightthing(uri):
             return {'content-type': 'image/png'}, body, '200 Thank You!'
         except:
             print traceback.format_exc()
-            #log('%s: graphics error' % uri)
             return {'location': '404icon.png', 'x-debug': 'graphics error'}, '', '302 Go Ahead!'
 
         body = 'found an image: %s' % response['content-type']
@@ -323,13 +324,11 @@ def dotherightthing(uri):
         # detect loops
         if uri == l[0]:
             return {'location': '404icon.png', 'x-debug': 'loops'}, '', '302 Go Ahead!'
-            #return {'content-type': 'text/plain'}, 'loop detected', '404 Fail!'
 
         redirect_uri = '%s?%s' % (ENVIRON['SCRIPT_URI'], l[0])
         return {'location': redirect_uri, 'x-debug': 'html'}, '', '302 Go Ahead!'
 
     # unmatched content-type
-    #log('%s: unknown content-type: %s' % (uri, content_type))
     redirect_uri = '%s?%s' % (ENVIRON['SCRIPT_URI'], urinorm2('/favicon.ico', referrer=uri))
     return {'location': redirect_uri, 'x-debug': 'content-type'}, '', '302 Go Ahead!'
 
@@ -342,14 +341,12 @@ def application(environ, start_response):
     except:
         log('%s' % traceback.format_exc())
         headers, body, status = {'location': '404icon.png', 'x-debug': 'exception'}, '', '302 Go Ahead!'
-        #headers, body, status = {'content-type': 'text/plain'}, '%s' % traceback.format_exc(), '500 Fail!'
 
     if isinstance(body, unicode):
         body=body.encode("utf-8")
 
     if not 'expires' in headers:
         expires = time.strftime("%a, %d %b %Y %H:%M:%S GMT", time.gmtime(time.time()+7*24*3600))
-        #expires = time.strftime("%a, %d %b %Y %H:%M:%S GMT", time.gmtime(time.time()+0))
         headers['expires'] = expires
     headers['content-length'] = str(len(body))
 
