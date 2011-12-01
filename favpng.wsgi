@@ -7,18 +7,21 @@
 
 import sys; sys.path.insert(0, '/srv/www/vhosts/tools.sickos.org/lib/site-packages')
 import time
+DEBUG=False
 try:
     # https://github.com/gopher/python-tracebackturbo
     import tracebackturbo as traceback
 except ImportError:
     import traceback
+CACHE=None
 try:
-    import memcache; cache = memcache.Client(['127.0.0.1:11211'])
+    import memcache; CACHE = memcache.Client(['127.0.0.1:11211'])
 except ImportError:
-    cache = None
+    pass
 
+ENVIRON={}
 def log(str):
-    ENVIRON['wsgi.errors'].write('%s' % str)
+    ENVIRON['wsgi.errors'].write('%s\n' % str)
 
 chars_alnum='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890'
 chars_hostname=chars_alnum+'.-_'
@@ -128,7 +131,9 @@ def links(html, rels, types=False, referrer=None):
             if not tag in ['meta', 'link', 'br']:
                 self.dompath.append(tag)
 
-            if self.dompath == ['html', 'head'] and tag == 'link':
+            # firefox behaviour: accept links outside header
+            #if self.dompath == ['html', 'head'] and tag == 'link':
+            if tag == 'link':
                 self.handle_link(attrs)
 
         def handle_endtag(self, tag):
@@ -222,16 +227,18 @@ def img2png(buf, ctype):
 
 import httplib2, socket
 def dotherightthing(uri):
+    if DEBUG: log('uri = %s' % uri)
     if uri.startswith('uri='):
         uri = uri[4:]
     try:
         uri = urinorm2(uri)
     except:
-        # empty and broken uris
-        return {'location': 'about.html', 'x-debug': 'empty or broken uri'}, '', '302 Go Ahead!'
+        # broken uris
+        return {'location': 'icons/404.png', 'x-debug': 'network'}, '', '302 Go Ahead!'
 
-    if cache:
-        result = cache.get('favpng_%s' % uri)
+    if CACHE:
+        key = ('favpng_%s' % uri)[:250]
+        result = CACHE.get(key)
         if result:
             return result
 
@@ -250,18 +257,11 @@ def dotherightthing(uri):
         log('%s' % traceback.format_exc())
         return {'location': 'icons/404.png', 'x-debug': 'network-exception'}, '', '302 Go Ahead!'
 
-    # pass redirects
-    if 'content-location' in response and urinorm2(response['content-location'], uri) != uri or \
-        response.status in [301, 302, 303, 304, 307]:
-        redirect_uri = '%s?%s' % (ENVIRON['SCRIPT_URI'], urinorm2(response['content-location'], uri))
-        return {'location': redirect_uri, 'x-debug': 'redirect'}, '', '302 Go Ahead!'
-
-    # empty body
-    if not len(content):
-        return {'location': 'icons/404.png', 'x-debug': 'empty'}, '', '302 Go Ahead!'
-        
-    # fix content-type http://www.instructables.com/favicon.ico
-    if not 'content-type' in response:
+    if DEBUG: log('original content-type = %s' % response.get('content-type', None))
+    # fix incomplete content-type, e.g. http://www.instructables.com/favicon.ico
+    if not response.has_key('content-type'): # set a default
+        response['content-type'] = 'application/octet-stream'
+    if response['content-type'] in ['application/octet-stream', 'application/xml', 'text/xml']: # consider ending
         if uri.lower().endswith('.htm') or uri.lower().endswith('.html'):
             response['content-type'] = 'text/html'
         if uri.lower().endswith('.ico'):
@@ -272,15 +272,32 @@ def dotherightthing(uri):
             response['content-type'] = 'image/gif'
         if uri.lower().endswith('.jpg') or uri.lower().endswith('.jpeg'):
             response['content-type'] = 'image/jpeg'
-
-    # shortcut: ignore content-type for filename 'favicon.ico'
+        if uri.lower().endswith('.rss') or uri.lower().endswith('.rss/'):
+            response['content-type'] = 'application/rss+xml'
+        if uri.lower().endswith('.atom') or uri.lower().endswith('.atom/'):
+            response['content-type'] = 'application/atom+xml'
     response['content-type'] = response['content-type'].lower()
     content_type = response['content-type'].split(';')[0]
+
+    # overwrite content-type for very special filename 'favicon.ico'
     if uri.endswith('favicon.ico'):
         content_type = 'image/ico'
 
+    if DEBUG: log('final content-type = %s' % content_type)
+
+    # pass redirects
+    if 'content-location' in response and urinorm2(response['content-location'], uri) != uri or \
+        response.status in [301, 302, 303, 304, 307]:
+        redirect_uri = '%s?%s' % (ENVIRON['SCRIPT_URI'], urinorm2(response['content-location'], uri))
+        return {'location': redirect_uri, 'x-debug': 'passed redirect'}, '', '302 Go Ahead!'
+
+    # empty body
+    if not len(content) or response.status != 200:
+        redirect_uri = '%s?%s' % (ENVIRON['SCRIPT_URI'], urinorm2('/', uri))
+        return {'location': redirect_uri, 'x-debug': 'nothing found'}, '', '302 Go Ahead!'
+        
     # images
-    if content_type in ['image/png', 'image/gif', 'image/ico', 'image/x-icon', 'image/vnd.microsoft.icon', 'application/octet-stream', 'image/jpeg']:
+    if content_type in ['image/png', 'image/gif', 'image/ico', 'image/x-icon', 'image/vnd.microsoft.icon', 'image/jpeg', 'application/octet-stream']:
         extension = {
             'image/png': 'png',
             'image/gif': 'gif',
@@ -294,30 +311,54 @@ def dotherightthing(uri):
             body = img2png(content, extension)
             return {'content-type': 'image/png'}, body, '200 Thank You!'
         except:
-            print traceback.format_exc()
-            return {'location': 'icons/404.png', 'x-debug': 'graphics error'}, '', '302 Go Ahead!'
-
-        body = 'found an image: %s' % response['content-type']
-        body += '\nuri: %s' % uri
-        return {'content-type': 'text/plain'}, body, '200 Thank You!'
+            # fixme: log error
+            log('img2png failed for %s at %s' % (content_type, uri))
+            # continue
 
     # html
-    if content_type in ['text/html', 'text/xml', 'text/plain', 'application/xml']:
+    if content_type in ['text/html', 'text/plain', 'application/xml', 'text/xml', 'application/octet-stream']:
+        if DEBUG: log('parsing as html')
         content_encoding = 'latin1'
         if 'charset=' in response['content-type']:
             content_encoding = response['content-type'].split('charset=')[1]
+            if content_encoding == 'utf-8lias': content_encoding = 'utf-8' # diblert.com
 
-        l = links(content.decode(content_encoding, 'ignore'), rels=['icon', 'shortcut icon'], referrer=uri)
-        if not l:
-            l = [urinorm2('/favicon.ico', referrer=uri)]
+        try:
+            content = content.decode(content_encoding, 'ignore')
+        except LookupError:
+            content = content.decode('ascii', 'ignore')
+        l = links(content, rels=['icon', 'shortcut icon'], referrer=uri)
+        if DEBUG: log('found links: %s' % l)
 
-        # detect loops
-        if uri == l[0]:
-            return {'location': 'icons/404.png', 'x-debug': 'loops'}, '', '302 Go Ahead!'
+        if l:
+            redirect_uri = '%s?%s' % (ENVIRON['SCRIPT_URI'], l[0])
+            return {'location': redirect_uri, 'x-debug': 'html'}, '', '302 Go Ahead!'
+        # else: continue
 
-        redirect_uri = '%s?%s' % (ENVIRON['SCRIPT_URI'], l[0])
-        return {'location': redirect_uri, 'x-debug': 'html'}, '', '302 Go Ahead!'
+    # feeds
+    if content_type in ['application/rss+xml', 'application/atom+xml', 'application/rdf+xml', 'application/xml', 'text/xml', 'application/octet-stream']:
+        try:
+            import feedparser
+            if DEBUG: log('parsing as feed')
+            f = feedparser.parse(content)
+            for link in f.feed.get('links', []):
+                if link.type in ['text/html']:
+                    redirect_uri = '%s?%s' % (ENVIRON['SCRIPT_URI'], urinorm2(link.href, referrer=uri))
+                    return {'location': redirect_uri, 'x-debug': 'feed'}, '', '302 Go Ahead!'
+            if DEBUG: log('no link found at %s' % uri)
 
+            if "image" in f.feed:
+                redirect_uri = '%s?%s' % (ENVIRON['SCRIPT_URI'], urinorm2(f.feed.image.href, referrer=uri))
+                return {'location': redirect_uri, 'x-debug': 'feed'}, '', '302 Go Ahead!'
+            if DEBUG: log('no image found at %s' % uri)
+            if DEBUG: log('dump: %s' % f.feed)
+        except ImportError, AttributeError:
+            log('feedparser failed for %s at %s' % (content_type, uri))
+        # try to load frontpage
+        redirect_uri = '%s?%s' % (ENVIRON['SCRIPT_URI'], urinorm2('/', uri))
+        return {'location': redirect_uri, 'x-debug': 'frontpage'}, '', '302 Go Ahead!'
+
+    if DEBUG: log('continue')
     # fixed icons
     fixedicons = {
         'application/pdf': 'icons/pdf.png',
@@ -325,10 +366,14 @@ def dotherightthing(uri):
     if content_type in fixedicons:
         return {'location': fixedicons[content_type], 'x-debug': 'fixed'}, '', '302 Go Ahead!'
 
-    # unmatched content-type
-    if not content_type in []:
-        log('unmatched content type: %s' % content_type)
-    redirect_uri = '%s?%s' % (ENVIRON['SCRIPT_URI'], urinorm2('/favicon.ico', referrer=uri))
+    # unmatched content-types
+    if not content_type in [
+            'text/html', 'text/plain', 'application/xml',
+            'application/rss+xml', 'application/atom+xml', 'text/xml', 'application/rdf+xml', 'application/xml',
+            'image/png', 'image/gif', 'image/ico', 'image/x-icon', 'image/vnd.microsoft.icon', 'application/octet-stream', 'image/jpeg'
+        ]:
+        log('unmatched content type %s at %s' % (content_type, uri))
+    redirect_uri = '%s?%s' % (ENVIRON['SCRIPT_URI'], urinorm2('/', referrer=uri))
     return {'location': redirect_uri, 'x-debug': 'content-type'}, '', '302 Go Ahead!'
 
 def application(environ, start_response):
@@ -336,11 +381,26 @@ def application(environ, start_response):
     try:
         uri = environ['QUERY_STRING']
         headers, body, status = dotherightthing(uri)
-        if cache:
-            cache.set('favpng_%s' % uri, (headers, body, status), time=30*24*3600)
+        if CACHE:
+            key = ('favpng_%s' % uri)[:250]
+            CACHE.set(key, (headers, body, status), time=30*24*3600)
     except:
         log('%s' % traceback.format_exc())
-        headers, body, status = {'location': 'icons/404.png', 'x-debug': 'exception'}, '', '302 Go Ahead!'
+        headers, body, status = {'location': 'icons/404.png', 'x-debug': 'fatal exception'}, '', '302 Go Ahead!'
+
+    # redirection loop
+    #redirect_uri = '%s?%s' % (ENVIRON['SCRIPT_URI'], urinorm2('/favicon.ico', referrer=uri))
+    if headers.get('location', '').endswith(environ['QUERY_STRING']):
+        redirect_uri = '%s?%s' % (ENVIRON['SCRIPT_URI'], urinorm2('/favicon.ico', referrer=uri))
+        headers, body, status = {'location': redirect_uri, 'x-debug': 'redirection loop'}, '', '302 Go Ahead!'
+
+    # redirection after final destination
+    if headers.get('location', None) and environ['QUERY_STRING'].endswith('/favicon.ico'):
+        headers, body, status = {'location': 'icons/404.png', 'x-debug': 'final loop'}, '', '302 Go Ahead!'
+
+    # no args
+    if not environ['QUERY_STRING']:
+        return {'location': 'about.html', 'x-debug': 'no args'}, '', '302 Go Ahead!'
 
     if isinstance(body, unicode):
         body=body.encode("utf-8")
@@ -363,12 +423,14 @@ if __name__ == '__main__':
     #    print '---'
     #raise SystemExit()
 
+    DEBUG=True
+    CACHE=None
     import sys
     def sr(status, response_headers):
         print response_headers
         print status
 
     uri = sys.argv[1]
-    print application({'SCRIPT_URI': 'http://www.example.com/favicons.wsgi', 'QUERY_STRING': '%s' % uri}, sr)[0]
+    print application(environ={'SCRIPT_URI': 'http://www.example.com/favicons.wsgi', 'QUERY_STRING': '%s' % uri, 'wsgi.errors': sys.stderr}, start_response=sr)[0]
 
 # eof.
