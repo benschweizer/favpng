@@ -258,34 +258,6 @@ def dotherightthing(uri):
         log('%s' % traceback.format_exc())
         return {'location': 'icons/404.png', 'x-debug': 'network-exception'}, '', '302 Go Ahead!'
 
-    if DEBUG: log('original content-type = %s' % response.get('content-type', None))
-    # fix incomplete content-type, e.g. http://www.instructables.com/favicon.ico
-    if not response.has_key('content-type'): # set a default
-        response['content-type'] = 'application/octet-stream'
-    if response['content-type'] in ['application/octet-stream', 'application/xml', 'text/xml']: # consider ending
-        if uri.lower().endswith('.htm') or uri.lower().endswith('.html'):
-            response['content-type'] = 'text/html'
-        if uri.lower().endswith('.ico'):
-            response['content-type'] = 'image/ico'
-        if uri.lower().endswith('.png'):
-            response['content-type'] = 'image/png'
-        if uri.lower().endswith('.gif'):
-            response['content-type'] = 'image/gif'
-        if uri.lower().endswith('.jpg') or uri.lower().endswith('.jpeg'):
-            response['content-type'] = 'image/jpeg'
-        if uri.lower().endswith('.rss') or uri.lower().endswith('.rss/'):
-            response['content-type'] = 'application/rss+xml'
-        if uri.lower().endswith('.atom') or uri.lower().endswith('.atom/'):
-            response['content-type'] = 'application/atom+xml'
-    response['content-type'] = response['content-type'].lower()
-    content_type = response['content-type'].split(';')[0]
-
-    # overwrite content-type for very special filename 'favicon.ico'
-    if uri.endswith('favicon.ico'):
-        content_type = 'image/ico'
-
-    if DEBUG: log('final content-type = %s' % content_type)
-
     # pass redirects
     if 'content-location' in response and urinorm2(response['content-location'], uri) != uri or \
         response.status in [301, 302, 303, 304, 307]:
@@ -297,6 +269,45 @@ def dotherightthing(uri):
         redirect_uri = '%s?%s' % (ENVIRON['SCRIPT_URI'], urinorm2('/', uri))
         return {'location': redirect_uri, 'x-debug': 'nothing found'}, '', '302 Go Ahead!'
         
+    # find content-type
+    if DEBUG: log('original content-type = %s' % response.get('content-type', None))
+    if not response.has_key('content-type'): # set a default
+        response['content-type'] = 'application/octet-stream'
+
+    content_type = response['content-type'].split(';')[0].lower()
+    if content_type in ['application/octet-stream', 'application/xml', 'text/xml']: # look at file ending
+        if uri.lower().endswith('.htm') or uri.lower().endswith('.html'):
+            content_type = 'text/html'
+        if uri.lower().endswith('.ico'):
+            content_type = 'image/ico'
+        if uri.lower().endswith('.png'):
+            content_type = 'image/png'
+        if uri.lower().endswith('.gif'):
+            content_type = 'image/gif'
+        if uri.lower().endswith('.jpg') or uri.lower().endswith('.jpeg'):
+            content_type = 'image/jpeg'
+        if uri.lower().endswith('rss') or uri.lower().endswith('rss/'):
+            content_type = 'application/rss+xml'
+        if uri.lower().endswith('atom') or uri.lower().endswith('atom/'):
+            content_type = 'application/atom+xml'
+
+    # overwrite content-type for very special filename 'favicon.ico'
+    if uri.endswith('favicon.ico'):
+        content_type = 'image/ico'
+
+    # find content-encoding
+    content_encoding = 'ascii'
+    if 'charset=' in response['content-type']:
+        content_encoding = response['content-type'].split('charset=')[1].lower()
+        if content_encoding == 'utf-8lias': content_encoding = 'utf-8' # dilbert.com
+
+        if not codecs.lookup(content_encoding):
+            log('found unknown encoding %s at %s' % (content_encoding, uri))
+            content_encoding = 'ascii'
+
+    if DEBUG: log('final content-type = %s, content-encoding = %s' % (content_type, content_encoding))
+
+
     # images
     if content_type in ['image/png', 'image/gif', 'image/ico', 'image/x-icon', 'image/vnd.microsoft.icon', 'image/jpeg', 'application/octet-stream']:
         extension = {
@@ -319,15 +330,7 @@ def dotherightthing(uri):
     # html
     if content_type in ['text/html', 'text/plain', 'application/xml', 'text/xml', 'application/octet-stream']:
         if DEBUG: log('parsing as html')
-        content_encoding = 'latin1'
-        if 'charset=' in response['content-type']:
-            content_encoding = response['content-type'].split('charset=')[1]
-            if content_encoding == 'utf-8lias': content_encoding = 'utf-8' # diblert.com
-
-        if not codecs.lookup(content_encoding):
-            log('found unknown encoding %s at %s' % (content_encoding, uri))
-            content_encoding = 'ascii'
-        content_decoded = ontent.decode(content_encoding, 'ignore')
+        content_decoded = content.decode(content_encoding, 'ignore')
 
         l = links(content_decoded, rels=['icon', 'shortcut icon'], referrer=uri)
 
@@ -346,6 +349,7 @@ def dotherightthing(uri):
             f = feedparser.parse(content)
             for link in f.feed.get('links', []):
                 if link.type in ['text/html']:
+                    if DEBUG: log('found link %s' % link.href)
                     redirect_uri = '%s?%s' % (ENVIRON['SCRIPT_URI'], urinorm2(link.href, referrer=uri))
                     return {'location': redirect_uri, 'x-debug': 'feed'}, '', '302 Go Ahead!'
             if DEBUG: log('no link found at %s' % uri)
