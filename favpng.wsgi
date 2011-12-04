@@ -304,7 +304,7 @@ def dotherightthing(uri):
         if content_encoding == 'utf-8lias': content_encoding = 'utf-8' # dilbert.com
 
         try:
-            codecs.lookup(content_encoding):
+            codecs.lookup(content_encoding)
         except LookupError:
             log('found unknown encoding %s at %s' % (content_encoding, uri))
             content_encoding = 'ascii'
