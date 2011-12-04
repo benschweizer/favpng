@@ -226,6 +226,7 @@ def img2png(buf, ctype):
     return result
 
 import httplib2, socket
+import codecs
 def dotherightthing(uri):
     if DEBUG: log('uri = %s' % uri)
     if uri.startswith('uri='):
@@ -323,11 +324,13 @@ def dotherightthing(uri):
             content_encoding = response['content-type'].split('charset=')[1]
             if content_encoding == 'utf-8lias': content_encoding = 'utf-8' # diblert.com
 
-        try:
-            content = content.decode(content_encoding, 'ignore')
-        except LookupError:
-            content = content.decode('ascii', 'ignore')
-        l = links(content, rels=['icon', 'shortcut icon'], referrer=uri)
+        if not codecs.lookup(content_encoding):
+            log('found unknown encoding %s at %s' % (content_encoding, uri))
+            content_encoding = 'ascii'
+        content_decoded = ontent.decode(content_encoding, 'ignore')
+
+        l = links(content_decoded, rels=['icon', 'shortcut icon'], referrer=uri)
+
         if DEBUG: log('found links: %s' % l)
 
         if l:
