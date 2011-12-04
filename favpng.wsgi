@@ -235,6 +235,7 @@ def dotherightthing(uri):
         uri = urinorm2(uri)
     except:
         # broken uris
+        if DEBUG: log('broken uri %s' % uri)
         return {'location': 'icons/404.png', 'x-debug': 'network'}, '', '302 Go Ahead!'
 
     if CACHE:
@@ -253,6 +254,7 @@ def dotherightthing(uri):
         http = httplib2.Http(timeout=10, disable_ssl_certificate_validation=True)
         response, content = http.request(uri , 'GET', headers=headers)
     except (socket.error, socket.timeout, httplib2.ServerNotFoundError, httplib2.FailedToDecompressContent, httplib2.httplib.ResponseNotReady) as err:
+        if DEBUG: log('error %s' % err)
         return {'location': 'icons/404.png', 'x-debug': 'network'}, '', '302 Go Ahead!'
     except:
         log('%s' % traceback.format_exc())
@@ -301,7 +303,9 @@ def dotherightthing(uri):
         content_encoding = response['content-type'].split('charset=')[1].lower()
         if content_encoding == 'utf-8lias': content_encoding = 'utf-8' # dilbert.com
 
-        if not codecs.lookup(content_encoding):
+        try:
+            codecs.lookup(content_encoding):
+        except LookupError:
             log('found unknown encoding %s at %s' % (content_encoding, uri))
             content_encoding = 'ascii'
 
