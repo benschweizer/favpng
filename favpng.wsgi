@@ -18,6 +18,8 @@ try:
     import memcache; CACHE = memcache.Client(['127.0.0.1:11211'])
 except ImportError:
     pass
+CACHE=None
+DEBUG=True
 
 ENVIRON={}
 def log(str):
@@ -406,14 +408,14 @@ def application(environ, start_response):
         headers, body, status = {'location': 'icons/404.png', 'x-debug': 'fatal exception'}, '', '302 Go Ahead!'
 
     # redirection loop
-#    #redirect_uri = '%s?%s' % (ENVIRON['SCRIPT_URI'], urinorm2('/favicon.ico', referrer=uri))
-#    if headers.get('location', '').endswith(environ['QUERY_STRING']):
-#        redirect_uri = '%s?%s' % (ENVIRON['SCRIPT_URI'], urinorm2('/favicon.ico', referrer=uri))
-#        headers, body, status = {'location': redirect_uri, 'x-debug': 'redirection loop'}, '', '302 Go Ahead!'
-#
-#    # redirection after final destination
-#    if headers.get('location', None) and environ['QUERY_STRING'].endswith('/favicon.ico'):
-#        headers, body, status = {'location': 'icons/404.png', 'x-debug': 'final loop'}, '', '302 Go Ahead!'
+    #redirect_uri = '%s?%s' % (ENVIRON['SCRIPT_URI'], urinorm2('/favicon.ico', referrer=uri))
+    if headers.get('location', '').endswith(environ['QUERY_STRING']) and environ['QUERY_STRING'] != '':
+        redirect_uri = '%s?%s' % (ENVIRON['SCRIPT_URI'], urinorm2('/favicon.ico', referrer=uri))
+        headers, body, status = {'location': redirect_uri, 'x-debug': 'redirection loop'}, '', '302 Go Ahead!'
+
+    # redirection after final destination
+    if headers.get('location', None) and environ['QUERY_STRING'].endswith('/favicon.ico'):
+        headers, body, status = {'location': 'icons/404.png', 'x-debug': 'final loop'}, '', '302 Go Ahead!'
  
     if isinstance(body, unicode):
         body=body.encode("utf-8")
