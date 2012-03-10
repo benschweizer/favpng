@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 # vim: ts=4 syntax=python
 #
-# Copyright (c) 2009-2011 Benjamin Schweizer.
+# Copyright (c) 2009-2012 Benjamin Schweizer.
 #
 
 import sys; sys.path.insert(0, '/srv/www/vhosts/tools.sickos.org/lib/site-packages')
@@ -231,11 +231,17 @@ def dotherightthing(uri):
     if DEBUG: log('uri = %s' % uri)
     if uri.startswith('uri='):
         uri = uri[4:]
+
+    if uri == '':
+        return {'location': 'about.html', 'x-debug': 'no args'}, '', '302 Go Ahead!'
+
     try:
         uri = urinorm2(uri)
-    except:
+        if not uri.split('://')[0] in ['http', 'https']:
+            raise Exception('schema not supported')
+    except Exception, err:
         # broken uris
-        if DEBUG: log('broken uri %s' % uri)
+        if DEBUG: log('broken uri %s: %s' % (uri, err))
         return {'location': 'icons/404.png', 'x-debug': 'network'}, '', '302 Go Ahead!'
 
     if CACHE:
@@ -400,19 +406,15 @@ def application(environ, start_response):
         headers, body, status = {'location': 'icons/404.png', 'x-debug': 'fatal exception'}, '', '302 Go Ahead!'
 
     # redirection loop
-    #redirect_uri = '%s?%s' % (ENVIRON['SCRIPT_URI'], urinorm2('/favicon.ico', referrer=uri))
-    if headers.get('location', '').endswith(environ['QUERY_STRING']):
-        redirect_uri = '%s?%s' % (ENVIRON['SCRIPT_URI'], urinorm2('/favicon.ico', referrer=uri))
-        headers, body, status = {'location': redirect_uri, 'x-debug': 'redirection loop'}, '', '302 Go Ahead!'
-
-    # redirection after final destination
-    if headers.get('location', None) and environ['QUERY_STRING'].endswith('/favicon.ico'):
-        headers, body, status = {'location': 'icons/404.png', 'x-debug': 'final loop'}, '', '302 Go Ahead!'
-
-    # no args
-    if not environ['QUERY_STRING']:
-        return {'location': 'about.html', 'x-debug': 'no args'}, '', '302 Go Ahead!'
-
+#    #redirect_uri = '%s?%s' % (ENVIRON['SCRIPT_URI'], urinorm2('/favicon.ico', referrer=uri))
+#    if headers.get('location', '').endswith(environ['QUERY_STRING']):
+#        redirect_uri = '%s?%s' % (ENVIRON['SCRIPT_URI'], urinorm2('/favicon.ico', referrer=uri))
+#        headers, body, status = {'location': redirect_uri, 'x-debug': 'redirection loop'}, '', '302 Go Ahead!'
+#
+#    # redirection after final destination
+#    if headers.get('location', None) and environ['QUERY_STRING'].endswith('/favicon.ico'):
+#        headers, body, status = {'location': 'icons/404.png', 'x-debug': 'final loop'}, '', '302 Go Ahead!'
+ 
     if isinstance(body, unicode):
         body=body.encode("utf-8")
 
