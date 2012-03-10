@@ -18,8 +18,6 @@ try:
     import memcache; CACHE = memcache.Client(['127.0.0.1:11211'])
 except ImportError:
     pass
-CACHE=None
-DEBUG=True
 
 ENVIRON={}
 def log(str):
