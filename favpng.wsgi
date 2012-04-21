@@ -259,7 +259,7 @@ def dotherightthing(uri):
     try:
         http = httplib2.Http(timeout=10, disable_ssl_certificate_validation=True)
         response, content = http.request(uri , 'GET', headers=headers)
-    except (socket.error, socket.timeout, httplib2.ServerNotFoundError, httplib2.FailedToDecompressContent, httplib2.httplib.ResponseNotReady) as err:
+    except (socket.error, socket.timeout, httplib2.ServerNotFoundError, httplib2.FailedToDecompressContent, httplib2.httplib.ResponseNotReady, httplib2.httplib.RedirectLimit) as err:
         if DEBUG: log('error %s' % err)
         return {'location': 'icons/404.png', 'x-debug': 'network'}, '', '302 Go Ahead!'
     except:
@@ -277,47 +277,51 @@ def dotherightthing(uri):
         redirect_uri = '%s?%s' % (ENVIRON['SCRIPT_URI'], urinorm2('/', uri))
         return {'location': redirect_uri, 'x-debug': 'nothing found'}, '', '302 Go Ahead!'
         
-    # find content-type
-    if DEBUG: log('original content-type = %s' % response.get('content-type', None))
-    if not response.has_key('content-type'): # set a default
-        response['content-type'] = 'application/octet-stream'
+    # split&process content-type field: Content-Type: application/xml; charset=ISO-8859-1; filename=feed.xml
+    if DEBUG: log('original content-type = %s' % response.get('content-type', None))    # default
+    content_type = response.get('content-type', 'application/octet-stream').lower()     # default
+    content_encoding = 'ascii'
+    for _value in content_type.split(';'):
+        if '=' in _value:
+            _key, _value = _value.split('=')
+        else:
+            _key = 'content-type'
+        _key = _key.strip()
+        _value = _value.strip()
 
-    content_type = response['content-type'].split(';')[0].lower()
-    if content_type in ['application/octet-stream', 'application/xml', 'text/xml']: # look at file ending
-        if uri.lower().endswith('.htm') or uri.lower().endswith('.html'):
-            content_type = 'text/html'
-        if uri.lower().endswith('.ico'):
-            content_type = 'image/ico'
-        if uri.lower().endswith('.png'):
-            content_type = 'image/png'
-        if uri.lower().endswith('.gif'):
-            content_type = 'image/gif'
-        if uri.lower().endswith('.jpg') or uri.lower().endswith('.jpeg'):
-            content_type = 'image/jpeg'
-        if uri.lower().endswith('rss') or uri.lower().endswith('rss/'):
-            content_type = 'application/rss+xml'
-        if uri.lower().endswith('atom') or uri.lower().endswith('atom/'):
-            content_type = 'application/atom+xml'
+        if _key == 'content-type':
+            content_type = _value
+            mime_overwrites = [
+                (('.htm', '.html'),     'text/html'),
+                (('.ico'),              'image/ico'),
+                (('.png'),              'image/png'),
+                (('.gif'),              'image/gif'),
+                (('.jpg', '.jpeg'),     'image/jpeg'),
+                (('rss', 'rss/'),       'application/rss+xml'),
+                (('atom', 'atom/'),     'application/rss+xml'),
+            ]
+            # prefer file ending for some types
+            if _value in ['application/octet-stream', 'application/xml', 'text/xml']:
+                for ending, mimetype in mime_overwrites:
+                    if uri.lower().endswith(ending):
+                        _value = mimetype
+
+        if _key == 'charset': # find content-encoding
+            content_encoding = _value
+            if content_encoding == 'utf-8lias': content_encoding = 'utf-8' # dilbert.com
+            try:
+                codecs.lookup(content_encoding)
+            except LookupError:
+                log('found unknown encoding %s at %s' % (content_encoding, uri))
+                content_encoding = 'ascii'
 
     # overwrite content-type for very special filename 'favicon.ico'
     if uri.endswith('favicon.ico'):
         content_type = 'image/ico'
 
-    # find content-encoding
-    content_encoding = 'ascii'
-    if 'charset=' in response['content-type']:
-        content_encoding = response['content-type'].split('charset=')[1].lower()
-        if content_encoding == 'utf-8lias': content_encoding = 'utf-8' # dilbert.com
-
-        try:
-            codecs.lookup(content_encoding)
-        except LookupError:
-            log('found unknown encoding %s at %s' % (content_encoding, uri))
-            content_encoding = 'ascii'
-
     if DEBUG: log('final content-type = %s, content-encoding = %s' % (content_type, content_encoding))
 
-
+ 
     # images
     if content_type in ['image/png', 'image/gif', 'image/ico', 'image/x-icon', 'image/vnd.microsoft.icon', 'image/jpeg', 'application/octet-stream']:
         extension = {
@@ -337,8 +341,9 @@ def dotherightthing(uri):
             log('img2png failed for %s at %s' % (content_type, uri))
             # continue
 
+
     # html
-    if content_type in ['text/html', 'text/plain', 'application/xml', 'text/xml', 'application/octet-stream']:
+    if content_type in ['text/html', 'text/plain', 'application/xml', 'text/xml', 'application/octet-stream', 'application/xhtml+xml']:
         if DEBUG: log('parsing as html')
         content_decoded = content.decode(content_encoding, 'ignore')
 
@@ -350,6 +355,7 @@ def dotherightthing(uri):
             redirect_uri = '%s?%s' % (ENVIRON['SCRIPT_URI'], l[0])
             return {'location': redirect_uri, 'x-debug': 'html'}, '', '302 Go Ahead!'
         # else: continue
+
 
     # feeds
     if content_type in ['application/rss+xml', 'application/atom+xml', 'application/rdf+xml', 'application/xml', 'text/xml', 'application/octet-stream']:
@@ -385,7 +391,7 @@ def dotherightthing(uri):
 
     # unmatched content-types
     if not content_type in [
-            'text/html', 'text/plain', 'application/xml',
+            'text/html', 'text/plain', 'application/xml', 'application/xhtml+xml',
             'application/rss+xml', 'application/atom+xml', 'text/xml', 'application/rdf+xml', 'application/xml',
             'image/png', 'image/gif', 'image/ico', 'image/x-icon', 'image/vnd.microsoft.icon', 'application/octet-stream', 'image/jpeg'
         ]:
