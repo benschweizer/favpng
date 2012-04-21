@@ -242,7 +242,7 @@ def dotherightthing(uri):
     except Exception, err:
         # broken uris
         if DEBUG: log('broken uri %s: %s' % (uri, err))
-        return {'location': 'icons/404.png', 'x-debug': 'network'}, '', '302 Go Ahead!'
+        return {'location': 'icons/500.png', 'x-debug': 'network'}, '', '302 Go Ahead!'
 
     if CACHE:
         key = ('favpng_%s' % uri)[:250]
@@ -259,12 +259,12 @@ def dotherightthing(uri):
     try:
         http = httplib2.Http(timeout=10, disable_ssl_certificate_validation=True)
         response, content = http.request(uri , 'GET', headers=headers)
-    except (socket.error, socket.timeout, httplib2.ServerNotFoundError, httplib2.FailedToDecompressContent, httplib2.httplib.ResponseNotReady, httplib2.httplib.RedirectLimit) as err:
+    except (socket.error, socket.timeout, httplib2.ServerNotFoundError, httplib2.FailedToDecompressContent, httplib2.httplib.ResponseNotReady, httplib2.RedirectLimit) as err:
         if DEBUG: log('error %s' % err)
-        return {'location': 'icons/404.png', 'x-debug': 'network'}, '', '302 Go Ahead!'
+        return {'location': 'icons/500.png', 'x-debug': 'network'}, '', '302 Go Ahead!'
     except:
         log('%s' % traceback.format_exc())
-        return {'location': 'icons/404.png', 'x-debug': 'network-exception'}, '', '302 Go Ahead!'
+        return {'location': 'icons/500.png', 'x-debug': 'network-exception'}, '', '302 Go Ahead!'
 
     # pass redirects
     if 'content-location' in response and urinorm2(response['content-location'], uri) != uri or \
@@ -409,7 +409,7 @@ def application(environ, start_response):
             CACHE.set(key, (headers, body, status), time=30*24*3600)
     except:
         log('%s' % traceback.format_exc())
-        headers, body, status = {'location': 'icons/404.png', 'x-debug': 'fatal exception'}, '', '302 Go Ahead!'
+        headers, body, status = {'location': 'icons/500.png', 'x-debug': 'fatal exception'}, '', '302 Go Ahead!'
 
     # redirection loop
     #redirect_uri = '%s?%s' % (ENVIRON['SCRIPT_URI'], urinorm2('/favicon.ico', referrer=uri))
