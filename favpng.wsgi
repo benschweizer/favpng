@@ -2,20 +2,21 @@
 # -*- coding: utf-8 -*-
 # vim: ts=4 syntax=python
 #
-# Copyright (c) 2009-2012 Benjamin Schweizer.
+# Copyright (c) 2009-2013 Benjamin Schweizer.
 #
 
 import sys; sys.path.insert(0, '/srv/www/vhosts/tools.sickos.org/lib/site-packages')
 import time
 DEBUG=False
 try:
-    # https://github.com/gopher/python-tracebackturbo
+    # https://github.com/cxcv/python-tracebackturbo
     import tracebackturbo as traceback
 except ImportError:
     import traceback
 CACHE=None
 try:
-    import memcache; CACHE = memcache.Client(['127.0.0.1:11211'])
+    if not DEBUG:
+        import memcache; CACHE = memcache.Client(['127.0.0.1:11211'])
 except ImportError:
     pass
 
@@ -217,7 +218,8 @@ def img2png(buf, ctype):
         convert(magick_wand, 16, 16, 8)
 
         magickwand.MagickSetFilename(magick_wand, 'buffer.png') # hint
-        size = magickwand.size_t()
+        #size = magickwand.size_t()
+        size = magickwand.magickwand5.c_ulong()
         buf = magickwand.MagickGetImageBlob(magick_wand, size)
         result = ''.join([chr(buf[i]) for i in range(0, size.value + 1)])
         magickwand.MagickRelinquishMemory(buf)
@@ -336,9 +338,10 @@ def dotherightthing(uri):
         try:
             body = img2png(content, extension)
             return {'content-type': 'image/png'}, body, '200 Thank You!'
-        except:
+        except Exception ,e:
             # fixme: log error
             log('img2png failed for %s at %s' % (content_type, uri))
+            if DEBUG: raise #log('  exception: %s' % e)
             # continue
 
 
@@ -396,7 +399,7 @@ def dotherightthing(uri):
             'image/png', 'image/gif', 'image/ico', 'image/x-icon', 'image/vnd.microsoft.icon', 'application/octet-stream', 'image/jpeg'
         ]:
         log('unmatched content type %s at %s' % (content_type, uri))
-    redirect_uri = '%s?%s' % (ENVIRON['SCRIPT_URI'], urinorm2('/', referrer=uri))
+    redirect_uri = '%s?%s' % (ENVIRON['SCRIPT_URI'], urinorm2('/favicon.ico', referrer=uri))
     return {'location': redirect_uri, 'x-debug': 'content-type'}, '', '302 Go Ahead!'
 
 def application(environ, start_response):
@@ -420,7 +423,7 @@ def application(environ, start_response):
     # redirection after final destination
     if headers.get('location', None) and environ['QUERY_STRING'].endswith('/favicon.ico'):
         headers, body, status = {'location': 'icons/404.png', 'x-debug': 'final loop'}, '', '302 Go Ahead!'
- 
+
     if isinstance(body, unicode):
         body=body.encode("utf-8")
 
@@ -450,6 +453,6 @@ if __name__ == '__main__':
         print status
 
     uri = sys.argv[1]
-    print application(environ={'SCRIPT_URI': 'http://www.example.com/favicons.wsgi', 'QUERY_STRING': '%s' % uri, 'wsgi.errors': sys.stderr}, start_response=sr)[0]
+    print application(environ={'SCRIPT_URI': 'http://www.example.com/favpng.wsgi', 'QUERY_STRING': '%s' % uri, 'wsgi.errors': sys.stderr}, start_response=sr)[0]
 
 # eof.
