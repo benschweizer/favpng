@@ -2,4 +2,4 @@ favpng
 ======
 a web service to retrieve favicons 
 
-http://tools.sickos.org/favpng/
+https://magnumchaos.org/tools/favpng/
