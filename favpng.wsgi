@@ -2,10 +2,10 @@
 # -*- coding: utf-8 -*-
 # vim: ts=4 syntax=python
 #
-# Copyright (c) 2009-2013 Benjamin Schweizer.
+# Copyright (c) 2009-2014 Benjamin Schweizer.
 #
 
-import sys; sys.path.insert(0, '/srv/www/vhosts/tools.sickos.org/lib/site-packages')
+import sys; sys.path.insert(0, '/srv/www/vhosts/magnumchaos.org/lib/site-packages')
 import time
 DEBUG=False
 try:
@@ -232,7 +232,9 @@ import codecs
 def dotherightthing(uri):
     if DEBUG: log('uri = %s' % uri)
     if uri.startswith('uri='):
-        uri = uri[4:]
+        #uri = uri[4:]
+        uri = urllib.unquote(uri[4:]) #.decode('utf8')
+    if DEBUG: log('uri4 = %s' % uri)
 
     if uri == '':
         return {'location': 'about.html', 'x-debug': 'no args'}, '', '302 Go Ahead!'
